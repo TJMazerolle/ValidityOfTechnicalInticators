@@ -1,0 +1,91 @@
+---
+title: "Validity of Technical Indicators in Foreign Exchange Markets"
+author: "Troy Mazerolle"
+date: "2024-08-25"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+if(!is.null(dev.list())) dev.off()
+cat("/014")
+rm(list=ls())
+gc()
+
+library(quantmod)
+library(TTR)
+library(dplyr)
+```
+
+```{r}
+getSymbols(c("EURUSD=X"),
+           from = Sys.Date() - 10000,
+           to = Sys.Date() - 2)
+eurusd <- data.frame(`EURUSD=X`) %>%
+  select(1:4) %>%
+  rename_with(~ c("Open", "High", "Low", "Close"), .cols = 1:4) %>%
+  mutate(across(1:4, as.numeric)) %>%
+  na.omit
+
+```
+
+```{r}
+closing_prices <- eurusd$Close
+macd <- as.data.frame(MACD(closing_prices, 
+                           nFast = 12, nSlow = 26, 
+                           nSig = 9, maType = "EMA", percent = FALSE))
+emaFast <- EMA(closing_prices, n = 12)
+emaSlow <- EMA(closing_prices, n = 26)
+```
+
+```{r}
+plot(x = as.Date(rownames(eurusd)), y = emaFast, 
+     xlab = "Date", ylab = "EMA", main = "Fast EMA and Slow EMA",
+     type = "l", col = "blue")
+lines(x = as.Date(rownames(eurusd)), y = emaSlow, type = "l", col = "red")
+```
+
+```{r}
+macdData <- as.data.frame(cbind(macd$macd, eurusd$Close)) %>%
+  rename_with(~ c("MACD", "Close"), .cols = 1:2) %>%
+  mutate(PriceDiff = (Close - lag(Close)) / lag(Close),
+         Diverging = ifelse(abs(MACD) > abs(lag(MACD)), TRUE, FALSE)) %>%
+  na.omit()
+```
+
+
+```{r}
+total_profit = 0.0
+counter <- 0
+for (i in 1:nrow(macdData)) {
+  if (macdData$Diverging[i]) {
+    if (macdData$MACD[i] >= 0) {
+      total_profit <- total_profit + macdData$PriceDiff[i]
+      counter <- counter + 1
+    } else {
+      total_profit <- total_profit - macdData$PriceDiff[i]
+      counter <- counter + 1
+    }
+  }
+}
+average_daily_profit <- total_profit / counter
+average_daily_profit
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
